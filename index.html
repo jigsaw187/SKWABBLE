@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SKWABBLE">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#EDEFF7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12142A" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>SKWABBLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Figtree:wght@400..700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one phone-width column. Setup is players, then a list of nouns (columns) and a list of superlatives (rows).
+   Play is a score strip over a scrollable grid; each cell opens a bottom sheet for the answer and the winner.
+   Identity: the superlative is a red highlight, the noun a yellow highlight, everywhere they appear. */
+:root{
+  --bg:#EDEFF7;
+  --surface:#FFFFFF;
+  --surface-2:#E1E4F1;
+  --fg:#171A33;
+  --muted:#575C82;
+  --line:#C9CEE3;
+  --edge:#171A33;
+  --accent:#D63A25;
+  --accent-ink:#FFFFFF;
+  --mark:#FFD84A;
+  --mark-ink:#171A33;
+  --scrim:rgba(10,12,30,.58);
+  --p0:#D63A25; --p1:#1F6FD1; --p2:#1F7A4A; --p3:#8A3FD1;
+  --p4:#B85400; --p5:#0F7C8A; --p6:#B0286B; --p7:#7A6A00;
+  --font-display:'Bricolage Grotesque','Arial Narrow',system-ui,sans-serif;
+  --font-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'DM Mono',ui-monospace,Menlo,Consolas,monospace;
+  --hw:96px;
+  --cw:76px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12142A;
+    --surface:#1C1F3D;
+    --surface-2:#292D54;
+    --fg:#ECEEFA;
+    --muted:#A3A8CF;
+    --line:#363B68;
+    --edge:#6A71B5;
+    --accent:#FF6A55;
+    --accent-ink:#1A0B12;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12142A;
+  --surface:#1C1F3D;
+  --surface-2:#292D54;
+  --fg:#ECEEFA;
+  --muted:#A3A8CF;
+  --line:#363B68;
+  --edge:#6A71B5;
+  --accent:#FF6A55;
+  --accent-ink:#1A0B12;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);
+  color:var(--fg);
+  font:400 16px/1.45 var(--font-body);
+  padding-inline:16px;
+  padding-block:16px 0;
+}
+body.lock{overflow:hidden}
+.app{max-width:640px;margin-inline:auto;min-width:0}
+h1,h2,h3,p{margin:0}
+button,input,textarea{font:inherit;color:inherit}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.eyebrow{font:500 .75rem/1.2 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hint{color:var(--muted);font-size:.95rem;max-width:52ch}
+
+/* Highlights */
+.tag-sup,.tag-noun{
+  padding:.02em .2em;border-radius:.16em;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+}
+.tag-sup{background:var(--accent);color:var(--accent-ink)}
+.tag-noun{background:var(--mark);color:var(--mark-ink)}
+
+/* Masthead */
+.masthead{display:flex;flex-direction:column;gap:12px;padding-top:8px}
+.masthead h1,.topbar h1{
+  font:800 clamp(2.3rem,11.5vw,3.8rem)/1 var(--font-display);
+  letter-spacing:-.035em;white-space:nowrap;
+}
+.masthead h1 .tag-sup,.topbar h1 .tag-sup{display:inline-block;transform:rotate(-2deg)}
+.masthead h1 .tag-noun,.topbar h1 .tag-noun{display:inline-block;transform:rotate(1.5deg)}
+.lede{font-size:1.05rem;max-width:44ch}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:48px;padding:0 18px;
+  background:var(--surface);color:var(--fg);
+  border:2px solid var(--edge);border-radius:10px;
+  box-shadow:0 3px 0 var(--edge);
+  font-weight:650;cursor:pointer;
+  transition:transform .08s,box-shadow .08s;
+}
+.btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--edge)}
+.btn.small{min-height:44px;padding:0 14px;font-size:.95rem}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.big{min-height:56px;font-size:1.1rem;flex:1}
+.btn.ghost{box-shadow:none;border-color:var(--line);background:transparent}
+.btn.ghost:active{transform:none;background:var(--surface-2)}
+.btn.add{width:100%;border-style:dashed;box-shadow:none;background:transparent}
+.btn.add:active{transform:none;background:var(--surface-2)}
+.iconbtn{
+  flex:none;width:46px;height:46px;display:grid;place-items:center;
+  background:var(--bg);color:var(--fg);
+  border:2px solid var(--line);border-radius:10px;cursor:pointer;
+}
+.iconbtn:active{background:var(--surface-2)}
+.icon{display:inline-flex}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+.opt{
+  min-height:44px;min-width:48px;padding:0 14px;
+  background:var(--surface);border:2px solid var(--line);border-radius:10px;
+  font-weight:650;cursor:pointer;
+}
+.opt[aria-pressed="true"]{background:var(--mark);color:var(--mark-ink);border-color:var(--edge)}
+
+/* Setup */
+.block{display:flex;flex-direction:column;gap:12px;margin-top:28px}
+.block h2{font:750 1.3rem/1.15 var(--font-display);letter-spacing:-.01em}
+.sub{display:flex;flex-direction:column;gap:10px}
+.sub-head{display:flex;align-items:baseline;gap:10px}
+.sub-head h3{font:700 1.05rem/1.2 var(--font-display)}
+.row-between{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.qrow{display:flex;flex-direction:column;gap:8px}
+.quick{display:flex;flex-wrap:wrap;gap:8px}
+.list{
+  display:flex;flex-direction:column;gap:10px;
+  background:var(--surface);border:2px solid var(--edge);border-radius:12px;padding:12px;min-width:0;
+}
+.namerow,.wrow{display:flex;align-items:center;gap:10px;min-width:0}
+.dot{flex:none;width:16px;height:16px;border-radius:50%;background:var(--pc)}
+.swatch{flex:none;width:14px;height:14px;border-radius:4px;border:2px solid var(--edge)}
+.swatch.noun{background:var(--mark)}
+.swatch.sup{background:var(--accent)}
+.input{
+  flex:1;min-width:0;min-height:46px;padding:0 12px;
+  background:var(--bg);color:var(--fg);
+  border:2px solid var(--line);border-radius:10px;
+}
+.input::placeholder{color:var(--muted);opacity:.85}
+.input.name{font:700 1.05rem var(--font-display)}
+textarea.input{display:block;width:100%;padding:10px 12px;line-height:1.4;min-height:88px;resize:vertical}
+.bar{
+  position:sticky;bottom:0;display:flex;gap:10px;
+  margin:28px -16px 0;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  background:var(--bg);border-top:2px solid var(--edge);
+}
+
+/* Play */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:4px}
+.topbar h1{font-size:clamp(1.7rem,8vw,2.2rem)}
+.board{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.scores{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;
+  padding:6px 12px 6px 10px;
+  background:var(--surface);border:2px solid var(--line);border-radius:999px;
+}
+.chip .cname{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:11ch}
+.chip .cscore{font:800 1.3rem/1 var(--font-display);font-variant-numeric:tabular-nums}
+.chip.lead{background:var(--mark);color:var(--mark-ink);border-color:var(--edge)}
+.meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.track{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.fill{height:100%;background:var(--accent);width:0;transition:width .25s}
+
+.scroller{
+  overflow:auto;max-height:min(70dvh,680px);
+  background:var(--surface);border:2px solid var(--edge);border-radius:12px;
+  overscroll-behavior:contain;
+}
+.grid{
+  display:grid;
+  grid-template-columns:var(--hw) repeat(var(--n),minmax(var(--cw),1fr));
+  width:max-content;min-width:100%;
+}
+.corner,.ch,.rh{position:sticky;background:var(--surface);display:flex;align-items:center;justify-content:center;padding:6px}
+.corner{top:0;left:0;z-index:3;border-right:2px solid var(--edge);border-bottom:2px solid var(--edge)}
+.ch{top:0;z-index:2;border-bottom:2px solid var(--edge);min-height:58px}
+.rh{left:0;z-index:1;border-right:2px solid var(--edge)}
+.ch span,.rh span{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden;
+  width:100%;padding:5px 4px;border-radius:6px;text-align:center;
+  font:700 .8rem/1.15 var(--font-body);overflow-wrap:anywhere;hyphens:auto;
+}
+.ch span{background:var(--mark);color:var(--mark-ink)}
+.rh span{background:var(--accent);color:var(--accent-ink)}
+.cell{
+  position:relative;
+  appearance:none;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:var(--surface);min-height:64px;padding:0;display:grid;place-items:center;cursor:pointer;
+}
+.cell:active{background:var(--surface-2)}
+.cell.note::after{
+  content:'';position:absolute;top:5px;right:5px;width:10px;height:10px;border-radius:50%;
+  background:var(--mark);border:2px solid var(--edge);
+}
+.pip{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.won{
+  width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
+  background:var(--pc);color:#fff;font:800 1.2rem/1 var(--font-display);
+}
+.cell.draw{background:repeating-linear-gradient(135deg,var(--surface) 0 7px,var(--surface-2) 7px 14px)}
+.draw-mark{font:500 .8rem var(--font-mono);color:var(--muted)}
+
+/* Sheets */
+.sheet-wrap{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.backdrop{position:absolute;inset:0;background:var(--scrim)}
+.sheet{
+  position:relative;width:100%;max-width:560px;max-height:92dvh;overflow:auto;
+  background:var(--surface);color:var(--fg);
+  border:2px solid var(--edge);border-bottom:0;border-radius:18px 18px 0 0;
+  padding:20px 16px calc(16px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;gap:16px;
+  animation:rise .18s ease-out;
+}
+.sheet:focus{outline:none}
+@keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.phrase{font:800 clamp(2rem,9vw,2.8rem)/1.3 var(--font-display);letter-spacing:-.025em;text-wrap:balance;overflow-wrap:anywhere}
+.fieldwrap{display:flex;flex-direction:column;gap:6px}
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.pick{
+  display:flex;align-items:center;gap:10px;min-height:58px;padding:8px 12px;min-width:0;
+  background:var(--bg);color:var(--fg);text-align:left;
+  border:2px solid var(--edge);border-radius:12px;box-shadow:0 3px 0 var(--edge);cursor:pointer;
+}
+.pick:active{transform:translateY(3px);box-shadow:0 0 0 var(--edge)}
+.pick .won{width:32px;height:32px;font-size:1rem;flex:none}
+.pick .pname{flex:1;min-width:0;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick .pts{font:500 .78rem var(--font-mono);color:var(--muted)}
+.pick.on{background:var(--mark);color:var(--mark-ink)}
+.pick.on .pts{color:var(--mark-ink)}
+.foot{display:flex;flex-wrap:wrap;gap:10px}
+.foot .btn{flex:1 1 auto}
+.menu{display:flex;flex-direction:column;gap:10px}
+.menuitem{
+  display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;
+  padding:12px 14px;background:var(--bg);border:2px solid var(--line);border-radius:12px;cursor:pointer;
+}
+.menuitem:active{background:var(--surface-2)}
+.menuitem b{font-weight:700}
+.menuitem span{color:var(--muted);font-size:.9rem}
+.menuitem.danger{border-color:var(--accent)}
+.menuitem.danger.armed{background:var(--accent);color:var(--accent-ink)}
+.menuitem.danger.armed span{color:var(--accent-ink)}
+
+.alist{display:flex;flex-direction:column;gap:10px}
+.aitem{
+  display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;width:100%;
+  padding:12px 14px;background:var(--bg);border:2px solid var(--line);border-radius:12px;min-width:0;
+}
+button.aitem{cursor:pointer}
+button.aitem:active{background:var(--surface-2)}
+.aline{font:750 1.05rem/1.3 var(--font-display);overflow-wrap:anywhere}
+.awho{display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:650;color:var(--muted)}
+.awho .dot{width:12px;height:12px}
+.atext{white-space:pre-wrap;overflow-wrap:anywhere;width:100%}
+.atext.none{color:var(--muted);font-style:italic}
+.empty{color:var(--muted)}
+
+#toast{
+  position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  z-index:60;max-width:calc(100% - 32px);
+  background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;
+  font-weight:650;text-align:center;
+}
+
+#toast{display:flex;align-items:center;gap:12px}
+.toast-act{
+  background:transparent;border:0;padding:6px 8px;margin:-6px -8px -6px 0;min-height:32px;
+  font-weight:800;text-decoration:underline;cursor:pointer;color:inherit;
+}
+.err{color:var(--accent);font-weight:650}
+.finale{
+  background:var(--mark);color:var(--mark-ink);
+  border:2px solid var(--edge);border-radius:12px;padding:16px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.finale .eyebrow{color:var(--mark-ink)}
+.finale h2{font:800 1.7rem/1.1 var(--font-display);letter-spacing:-.02em;text-wrap:balance}
+.ranks{display:flex;flex-direction:column;gap:8px}
+.rank{display:grid;grid-template-columns:9ch minmax(0,1fr) 2ch;gap:10px;align-items:center}
+.rname{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rbar{display:block;height:14px;border:2px solid var(--mark-ink);border-radius:99px;overflow:hidden}
+.rbar span{display:block;height:100%;background:var(--pc)}
+.rnum{font:800 1.1rem/1 var(--font-display);text-align:right;font-variant-numeric:tabular-nums}
+
+@media (prefers-reduced-motion: reduce){
+  .sheet{animation:none}
+  .btn,.fill{transition:none}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="layer"></div>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+  var KEY = 'skwabble-v1';
+  var MAX_PLAYERS = 8;
+  var MAX_WORDS = 12;
+
+
+
+  var NOUN_PACKS = {
+    food: { label: 'Food', words: ['taco','pickle','sandwich','cheeseburger','waffle','potato','gas station sushi','lasagna','banana','sourdough loaf','bagel','nacho','pancake','donut','casserole','turkey','burrito','pizza','hot dog','corn dog','cinnamon roll','meatball','pretzel','ramen','chili','grilled cheese','mac and cheese','breakfast burrito'] },
+    animals: { label: 'Animals', words: ['cat','dog','pigeon','goose','flamingo','raccoon','walrus','penguin','llama','otter','sloth','crow','bear','seagull','golden retriever','hamster','lobster','parrot','opossum','octopus','swan','moose','baby goat','capybara','hedgehog','squirrel','alpaca','shark','frog','owl','duck','cow'] },
+    wheels: { label: 'Wheels', words: ['car','minivan','lawnmower','jet ski','pickup truck','ice cream truck','tractor','school bus','scooter','unicycle','monster truck','yacht','shopping cart','sports car','golf cart','limo','motorcycle','food truck','bicycle','hot rod','tow truck','rental car','mail truck'] },
+    people: { label: 'People', words: ['wizard','cousin','dentist','clown','mailman','pirate','uncle','grandma','mermaid','bouncer','DJ','hairdresser','vampire','werewolf','ghost','sasquatch','mascot','bartender','substitute teacher','lifeguard','mime','barista','camp counselor','plumber','cowboy','magician','ex'] },
+    stuff: { label: 'Stuff', words: ['toaster','sock','hot tub','snowman','vending machine','scarecrow','lighthouse','trampoline','accordion','mullet','fax machine','tuba','couch','minigolf course','ferris wheel','tiny hat','cactus','mattress store','bowling alley','garden gnome','kazoo','bathrobe','chandelier','Roomba','karaoke night','fanny pack','traffic cone','sandal','campfire','jacuzzi','balloon animal','drive-thru','trophy','sneaker','lamp','haunted doll','rubber duck','cowboy hat','group chat','fidget spinner','lava lamp','inflatable pool'] }
+  };
+  var SUPER_PACKS = {
+    classic: { label: 'Classic', words: ['Cutest','Best','Worst','Dumbest','Smartest','Funniest','Scariest','Weirdest','Spiciest','Fastest','Slowest','Loudest','Fanciest','Cheapest','Messiest','Sneakiest','Most overrated','Most underrated','Most dramatic','Most majestic','Most chaotic','Most trustworthy','Most wholesome','Most iconic','Most delicious','Most useless','Most annoying','Most mysterious','Most photogenic','Most expensive-looking','Best-smelling','Crunchiest','Fluffiest','Shiniest','Coolest','Toughest','Luckiest','Laziest','Bravest','Snobbiest','Friendliest','Tastiest','Sleepiest','Rudest','Slipperiest','Strangest','Cleanest','Tallest','Fiercest','Most glamorous','Most confusing','Most dependable','Most heroic','Most disappointing','Most romantic','Most forgettable','Most lovable','Most smug','Most petty','Most ridiculous'] },
+    spicy: { label: 'Spicy', words: ['Sexiest','Most seductive','Most punchable','Most illegal','Most unhinged','Most cursed','Most dangerous','Moistest','Shadiest','Most embarrassing','Cringiest','Most offensive','Smelliest','Grossest','Creepiest','Greasiest','Dirtiest','Hairiest','Most suspicious','Hottest','Thirstiest','Most toxic','Most scandalous','Most delusional','Most irresponsible','Sketchiest'] }
+  };
+
+  var ICONS = {
+    dice:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    x:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    plus:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    menu:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'
+  };
+
+  var uid = 1;
+  var state = null;
+  var ui = { sheet: null, confirm: false, returnFocus: null, qp: 4, qs: 4, undo: null, fallbackText: null, restoreDraft: '', restoreMsg: '' };
+  var toastTimer = null;
+
+  var appEl = document.getElementById('app');
+  var layerEl = document.getElementById('layer');
+  var toastEl = document.getElementById('toast');
+
+  /* ---------- helpers ---------- */
+  function h(tag, attrs) {
+    var el = document.createElement(tag);
+    attrs = attrs || {};
+    Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'style') el.style.cssText = v;
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+    var kids = Array.prototype.slice.call(arguments, 2);
+    kids.forEach(function add(kid) {
+      if (kid === null || kid === undefined || kid === false) return;
+      if (Array.isArray(kid)) { kid.forEach(add); return; }
+      el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+    });
+    return el;
+  }
+  function icon(name) {
+    var s = h('span', { class: 'icon' });
+    s.innerHTML = ICONS[name];
+    return s;
+  }
+  function rand(n) { return Math.floor(Math.random() * n); }
+  function colorVar(i) { return 'var(--p' + (i % 8) + ')'; }
+  function byId(id) { return state.players.find(function (p) { return p.id === id; }); }
+  function indexOfId(id) { return state.players.findIndex(function (p) { return p.id === id; }); }
+  function supById(id) { return state.sups.find(function (x) { return x.id === id; }); }
+  function nounById(id) { return state.nouns.find(function (x) { return x.id === id; }); }
+  function dn(p) {
+    var i = state.players.indexOf(p);
+    return p.name.trim() || ('Player ' + (i + 1));
+  }
+  function initial(p) { return (Array.from(dn(p))[0] || '?').toUpperCase(); }
+  function newPlayer() { return { id: uid++, name: '', score: 0 }; }
+  function newWord() { return { id: uid++, text: '' }; }
+  function cellKey(sid, nid) { return sid + '-' + nid; }
+  function parseKey(k) { var a = k.split('-'); return { sid: +a[0], nid: +a[1] }; }
+  function phrase(sid, nid) {
+    var s = supById(sid), n = nounById(nid);
+    return (s ? s.text : '') + ' ' + (n ? n.text : '');
+  }
+
+  function usedSet(key, exceptId) {
+    var s = new Set();
+    state[key].forEach(function (w) {
+      if (w.id !== exceptId && w.text.trim()) s.add(w.text.trim().toLowerCase());
+    });
+    return s;
+  }
+  function pickWord(list, used) {
+    var pool = list.filter(function (w) { return !used.has(w.toLowerCase()); });
+    var src = pool.length ? pool : list;
+    return src[rand(src.length)];
+  }
+
+  function defaultPacks() {
+    return { n: Object.keys(NOUN_PACKS).concat(['mine']), s: Object.keys(SUPER_PACKS).concat(['mine']) };
+  }
+  function parseCustom(text, cap) {
+    var seen = new Set(), out = [];
+    String(text || '').split(/[\n,]+/).forEach(function (t) {
+      t = t.trim().slice(0, 28);
+      if (!t) return;
+      if (cap) t = t.charAt(0).toUpperCase() + t.slice(1);
+      if (seen.has(t.toLowerCase())) return;
+      seen.add(t.toLowerCase());
+      out.push(t);
+    });
+    return out;
+  }
+  function pool(key) {
+    var isNoun = key === 'nouns';
+    var packs = isNoun ? NOUN_PACKS : SUPER_PACKS;
+    var sel = isNoun ? state.packs.n : state.packs.s;
+    var list = [];
+    Object.keys(packs).forEach(function (pk) {
+      if (sel.indexOf(pk) > -1) list = list.concat(packs[pk].words);
+    });
+    if (sel.indexOf('mine') > -1) list = list.concat(parseCustom(isNoun ? state.custom.n : state.custom.s, !isNoun));
+    if (!list.length) Object.keys(packs).forEach(function (pk) { list = list.concat(packs[pk].words); });
+    return list;
+  }
+  function togglePack(group, pk) {
+    var arr = state.packs[group];
+    var i = arr.indexOf(pk);
+    if (i > -1) {
+      if (arr.length === 1) { toast('Keep at least one pack on'); return; }
+      arr.splice(i, 1);
+    } else arr.push(pk);
+    save(); render();
+  }
+
+  /* ---------- state ---------- */
+  function fresh() {
+    uid = 1;
+    return {
+      view: 'setup', dealt: false,
+      players: [newPlayer(), newPlayer(), newPlayer(), newPlayer()],
+      nouns: [newWord(), newWord(), newWord(), newWord()],
+      sups: [newWord(), newWord(), newWord(), newWord()],
+      cells: {}, archive: [], packs: defaultPacks(), custom: { n: '', s: '' }
+    };
+  }
+  function isNew(s) { return Array.isArray(s.nouns) && Array.isArray(s.sups); }
+  function valid(s) {
+    if (!s || !Array.isArray(s.players) || s.players.length < 2) return false;
+    var playersOk = s.players.every(function (p) { return p && typeof p.id === 'number'; });
+    if (!playersOk) return false;
+    if (isNew(s)) {
+      return s.nouns.length >= 2 && s.sups.length >= 2 &&
+        s.nouns.concat(s.sups).every(function (w) { return w && typeof w.id === 'number' && typeof w.text === 'string'; });
+    }
+    return s.players.every(function (p) { return typeof p.noun === 'string' && typeof p.sup === 'string'; });
+  }
+  function normalise(s) {
+    var maxId = 0;
+    s.players.forEach(function (p) {
+      p.score = Number(p.score) || 0;
+      if (typeof p.name !== 'string') p.name = '';
+      if (p.id > maxId) maxId = p.id;
+    });
+    uid = maxId + 1;
+    if (isNew(s)) {
+      s.nouns.concat(s.sups).forEach(function (w) { if (w.id >= uid) uid = w.id + 1; });
+    } else {
+      /* Saved by the first version: one noun and one superlative per player. */
+      var old = s.cells && typeof s.cells === 'object' ? s.cells : {};
+      s.nouns = s.players.map(function (p) { return { id: uid++, text: p.noun || '' }; });
+      s.sups = s.players.map(function (p) { return { id: uid++, text: p.sup || '' }; });
+      var moved = {};
+      Object.keys(old).forEach(function (k) {
+        var rc = k.split('-'), r = +rc[0], c = +rc[1];
+        if (s.sups[r] && s.nouns[c]) moved[cellKey(s.sups[r].id, s.nouns[c].id)] = old[k];
+      });
+      s.cells = moved;
+      s.dealt = s.gridSig !== null && s.gridSig !== undefined;
+      s.players.forEach(function (p) { delete p.noun; delete p.sup; });
+      delete s.gridSig;
+    }
+    if (!s.cells || typeof s.cells !== 'object') s.cells = {};
+    if (!Array.isArray(s.archive)) s.archive = [];
+    if (!s.packs || !Array.isArray(s.packs.n) || !Array.isArray(s.packs.s)) s.packs = defaultPacks();
+    if (!s.custom || typeof s.custom !== 'object') s.custom = { n: '', s: '' };
+    s.custom.n = String(s.custom.n || '');
+    s.custom.s = String(s.custom.s || '');
+    s.dealt = !!s.dealt;
+    if (s.view !== 'play') s.view = 'setup';
+    return s;
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      return valid(s) ? normalise(s) : null;
+    } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  /* ---------- saved answers ---------- */
+  function archiveKeys(keys) {
+    keys.forEach(function (k) {
+      var cell = state.cells[k];
+      if (!cell || !cell.a) return;
+      var ids = parseKey(k);
+      var w = cell.w !== null && cell.w !== undefined && byId(cell.w) ? dn(byId(cell.w)) : (cell.wn || '');
+      state.archive.push({ p: (cell.p || phrase(ids.sid, ids.nid)).trim(), w: w, a: cell.a, t: cell.t || Date.now() });
+    });
+    if (state.archive.length > 300) state.archive = state.archive.slice(-300);
+  }
+  function clearCells() {
+    archiveKeys(Object.keys(state.cells));
+    state.cells = {};
+  }
+
+  /* ---------- word filling ---------- */
+  function fillBlanks() {
+    ['nouns', 'sups'].forEach(function (key) {
+      var list = pool(key);
+      state[key].forEach(function (w) {
+        w.text = w.text.trim();
+        if (!w.text) w.text = pickWord(list, usedSet(key, w.id));
+      });
+    });
+  }
+  function rollAllWords() {
+    ['nouns', 'sups'].forEach(function (key) {
+      var used = new Set();
+      state[key].forEach(function (w) {
+        w.text = pickWord(pool(key), used);
+        used.add(w.text.toLowerCase());
+      });
+    });
+  }
+  function makeWords(key, size) {
+    var list = pool(key);
+    var used = new Set();
+    var out = [];
+    for (var i = 0; i < size; i++) {
+      var t = pickWord(list, used);
+      used.add(t.toLowerCase());
+      out.push({ id: uid++, text: t });
+    }
+    state[key] = out;
+  }
+
+  /* ---------- actions ---------- */
+  function deal() {
+    fillBlanks();
+    state.dealt = true;
+    state.view = 'play';
+    save(); render(); window.scrollTo(0, 0);
+  }
+  function quick() {
+    clearCells();
+    while (state.players.length < ui.qp) state.players.push(newPlayer());
+    state.players = state.players.slice(0, ui.qp);
+    state.players.forEach(function (p) { p.score = 0; });
+    makeWords('nouns', ui.qs);
+    makeWords('sups', ui.qs);
+    deal();
+  }
+  function addPlayer() {
+    if (state.players.length >= MAX_PLAYERS) { toast('Eight players is the limit'); return; }
+    var p = newPlayer();
+    state.players.push(p);
+    save(); render();
+    focusLater('name-' + p.id);
+  }
+  function removePlayer(id) {
+    if (state.players.length <= 2) return;
+    state.players = state.players.filter(function (p) { return p.id !== id; });
+    save(); render();
+  }
+  function addWord(key) {
+    if (state[key].length >= MAX_WORDS) { toast('Twelve is the limit'); return; }
+    var w = newWord();
+    state[key].push(w);
+    save(); render();
+    focusLater((key === 'nouns' ? 'noun-' : 'sup-') + w.id);
+  }
+  function removeWord(key, id) {
+    if (state[key].length <= 2) return;
+    var keys = Object.keys(state.cells).filter(function (k) {
+      var p = parseKey(k);
+      return key === 'nouns' ? p.nid === id : p.sid === id;
+    });
+    archiveKeys(keys);
+    keys.forEach(function (k) { delete state.cells[k]; });
+    state[key] = state[key].filter(function (w) { return w.id !== id; });
+    save(); render();
+  }
+  function focusLater(id) {
+    setTimeout(function () { var el = document.getElementById(id); if (el) el.focus(); }, 0);
+  }
+
+  function award(sid, nid, pid) {
+    var k = cellKey(sid, nid);
+    snapshot(k);
+    var prev = state.cells[k];
+    if (prev && prev.w !== null && prev.w !== undefined && byId(prev.w)) {
+      byId(prev.w).score = Math.max(0, byId(prev.w).score - 1);
+    }
+    var ta = document.getElementById('answer');
+    var text = ta ? ta.value.trim() : (prev && prev.a) || '';
+    var label = phrase(sid, nid).trim();
+    var winner = pid !== null ? byId(pid) : null;
+    if (winner) {
+      winner.score += 1;
+      toast(dn(winner) + ' takes ' + label, 'Undo', undo);
+    } else {
+      toast('No winner for ' + label, 'Undo', undo);
+    }
+    state.cells[k] = { w: pid, a: text, p: label, wn: winner ? dn(winner) : '', t: (prev && prev.t) || Date.now() };
+    save(); closeSheet(); render();
+  }
+  function clearCell(sid, nid) {
+    var k = cellKey(sid, nid);
+    snapshot(k);
+    var prev = state.cells[k];
+    if (prev && prev.w !== null && prev.w !== undefined && byId(prev.w)) {
+      byId(prev.w).score = Math.max(0, byId(prev.w).score - 1);
+    }
+    delete state.cells[k];
+    save(); closeSheet(); render();
+    toast('Cell cleared', 'Undo', undo);
+  }
+
+  function openCell(sid, nid) {
+    if (!ui.sheet) ui.returnFocus = document.activeElement;
+    ui.sheet = { type: 'cell', sid: sid, nid: nid };
+    ui.fallbackText = null;
+    ui.confirm = false;
+    renderLayer();
+  }
+  function openMenu() {
+    ui.sheet = { type: 'menu' };
+    ui.confirm = false;
+    ui.returnFocus = document.activeElement;
+    renderLayer();
+  }
+  function openAnswers() {
+    ui.sheet = { type: 'answers' };
+    ui.fallbackText = null;
+    ui.confirm = false;
+    ui.returnFocus = document.activeElement;
+    renderLayer();
+  }
+  function closeSheet() {
+    ui.sheet = null; ui.confirm = false; ui.fallbackText = null; ui.restoreDraft = ''; ui.restoreMsg = '';
+    renderLayer();
+    var rf = ui.returnFocus; ui.returnFocus = null;
+    if (rf && document.body.contains(rf)) { try { rf.focus(); } catch (e) {} }
+  }
+  function randomCell() {
+    var open = [];
+    state.sups.forEach(function (s) {
+      state.nouns.forEach(function (n) {
+        if (!state.cells[cellKey(s.id, n.id)]) open.push([s.id, n.id]);
+      });
+    });
+    if (!open.length) { toast('Every cell is settled'); return; }
+    var pick = open[rand(open.length)];
+    var el = document.querySelector('[data-cell="' + cellKey(pick[0], pick[1]) + '"]');
+    if (el) { try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} }
+    openCell(pick[0], pick[1]);
+  }
+  function freshWords() {
+    clearCells();
+    rollAllWords();
+    save(); closeSheet(); render();
+    toast('New words, same scores');
+  }
+  function replayGrid() {
+    clearCells();
+    save(); closeSheet(); render();
+    toast('Grid cleared');
+  }
+  function goSetup() {
+    state.view = 'setup'; save(); closeSheet(); render(); window.scrollTo(0, 0);
+  }
+  function resetAll() {
+    if (!ui.confirm) { ui.confirm = true; renderLayer(); return; }
+    clearCells();
+    state.players.forEach(function (p) { p.score = 0; });
+    save(); closeSheet(); render();
+    toast('Scores and grid reset');
+  }
+  function clearEarlier() {
+    if (!ui.confirm) { ui.confirm = true; renderLayer(); return; }
+    state.archive = [];
+    ui.confirm = false;
+    save(); renderLayer();
+    toast('Earlier answers cleared');
+  }
+
+  function hideToast() {
+    toastEl.hidden = true;
+    ui.undo = null;
+  }
+  function toast(msg, actLabel, act) {
+    toastEl.replaceChildren(h('span', {}, msg));
+    if (actLabel) toastEl.append(h('button', { class: 'toast-act', type: 'button', onclick: act }, actLabel));
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, actLabel ? 7000 : 2400);
+  }
+  function snapshot(k) {
+    var c = state.cells[k];
+    ui.undo = {
+      k: k,
+      prev: c ? JSON.parse(JSON.stringify(c)) : null,
+      scores: state.players.map(function (p) { return [p.id, p.score]; })
+    };
+  }
+  function undo() {
+    var u = ui.undo;
+    if (!u) return;
+    state.players.forEach(function (p) {
+      var found = u.scores.find(function (x) { return x[0] === p.id; });
+      if (found) p.score = found[1];
+    });
+    if (u.prev) state.cells[u.k] = u.prev; else delete state.cells[u.k];
+    ui.undo = null;
+    save(); render();
+    toast('Undone');
+  }
+  function copyText(text, okMsg) {
+    function fallback() { ui.fallbackText = text; renderLayer(); }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { toast(okMsg); }, fallback);
+      } else fallback();
+    } catch (e) { fallback(); }
+  }
+
+  /* ---------- views ---------- */
+  function render() {
+    appEl.replaceChildren(state.view === 'play' ? viewPlay() : viewSetup());
+  }
+
+  function optRow(values, current, onPick, labelFn) {
+    return h('div', { class: 'quick' }, values.map(function (v) {
+      return h('button', {
+        class: 'opt', type: 'button', 'aria-pressed': String(v === current), 'aria-label': labelFn(v),
+        onclick: function () { onPick(v); }
+      }, String(v));
+    }));
+  }
+
+  function playerRow(p, i) {
+    var canRemove = state.players.length > 2;
+    return h('div', { class: 'namerow', style: '--pc:' + colorVar(i) },
+      h('span', { class: 'dot' }),
+      h('input', {
+        id: 'name-' + p.id, class: 'input name', type: 'text', value: p.name,
+        placeholder: 'Player ' + (i + 1), maxlength: '20', autocomplete: 'off',
+        'aria-label': 'Player ' + (i + 1) + ' name',
+        oninput: function (e) { p.name = e.target.value; save(); }
+      }),
+      canRemove ? h('button', {
+        class: 'iconbtn', type: 'button', 'aria-label': 'Remove ' + dn(p),
+        onclick: function () { removePlayer(p.id); }
+      }, icon('x')) : null
+    );
+  }
+
+  function wordRow(key, item, i) {
+    var isNoun = key === 'nouns';
+    var id = (isNoun ? 'noun-' : 'sup-') + item.id;
+    var label = isNoun ? 'Noun' : 'Superlative';
+    return h('div', { class: 'wrow' },
+      h('span', { class: 'swatch ' + (isNoun ? 'noun' : 'sup') }),
+      h('input', {
+        id: id, class: 'input', type: 'text', value: item.text,
+        placeholder: isNoun ? 'e.g. taco' : 'e.g. Spiciest', maxlength: '28', autocomplete: 'off',
+        autocapitalize: isNoun ? 'none' : 'sentences', 'aria-label': label + ' ' + (i + 1),
+        oninput: function (e) { item.text = e.target.value; save(); }
+      }),
+      h('button', {
+        class: 'iconbtn', type: 'button', 'aria-label': 'Random ' + label.toLowerCase() + ' ' + (i + 1),
+        onclick: function () {
+          item.text = pickWord(pool(key), usedSet(key, item.id));
+          document.getElementById(id).value = item.text;
+          save();
+        }
+      }, icon('dice')),
+      state[key].length > 2 ? h('button', {
+        class: 'iconbtn', type: 'button', 'aria-label': 'Remove ' + label.toLowerCase() + ' ' + (i + 1),
+        onclick: function () { removeWord(key, item.id); }
+      }, icon('x')) : null
+    );
+  }
+
+  function wordSection(key, title, note, addLabel) {
+    return h('div', { class: 'sub' },
+      h('div', { class: 'sub-head' }, h('h3', {}, title), h('span', { class: 'eyebrow' }, note)),
+      h('div', { class: 'list' },
+        state[key].map(function (w, i) { return wordRow(key, w, i); }),
+        h('button', { class: 'btn add', type: 'button', onclick: function () { addWord(key); } }, icon('plus'), addLabel)
+      )
+    );
+  }
+
+  function viewSetup() {
+    return h('div', { class: 'app' },
+      h('header', { class: 'masthead' },
+        h('h1', {}, h('span', { class: 'tag-sup' }, 'SKWAB'), h('span', { class: 'tag-noun' }, 'BLE')),
+        h('p', { class: 'lede' }, 'Add players, then nouns for the columns and superlatives for the rows. Every pair is an argument. Write down the winning answer and give the point to one person.')
+      ),
+      h('section', { class: 'block', 'aria-labelledby': 'quick-h' },
+        h('h2', { id: 'quick-h' }, 'Instant game'),
+        h('p', { class: 'hint' }, 'No typing. Pick the players and the grid size, and every word is random.'),
+        h('div', { class: 'qrow' },
+          h('span', { class: 'eyebrow' }, 'Players'),
+          optRow([2, 3, 4, 5, 6, 7, 8], ui.qp, function (v) { ui.qp = v; render(); }, function (v) { return v + ' players'; })
+        ),
+        h('div', { class: 'qrow' },
+          h('span', { class: 'eyebrow' }, 'Grid size'),
+          optRow([3, 4, 5, 6, 8, 10], ui.qs, function (v) { ui.qs = v; render(); }, function (v) { return v + ' by ' + v + ' grid'; })
+        ),
+        h('button', { class: 'btn small', type: 'button', onclick: quick }, 'Deal instant ' + ui.qs + ' x ' + ui.qs + ' for ' + ui.qp)
+      ),
+      h('section', { class: 'block', 'aria-labelledby': 'players-h' },
+        h('h2', { id: 'players-h' }, 'Players'),
+        h('div', { class: 'list' },
+          state.players.map(playerRow),
+          h('button', { class: 'btn add', type: 'button', onclick: addPlayer }, icon('plus'), 'Add player')
+        )
+      ),
+      h('section', { class: 'block', 'aria-labelledby': 'words-h' },
+        h('div', { class: 'row-between' },
+          h('h2', { id: 'words-h' }, 'Grid words'),
+          h('div', { class: 'btnrow' },
+            h('button', { class: 'btn small', type: 'button', onclick: function () { fillBlanks(); save(); render(); } }, 'Fill blanks'),
+            h('button', { class: 'btn small', type: 'button', onclick: function () { rollAllWords(); save(); render(); } }, 'Roll all')
+          )
+        ),
+        h('p', { class: 'hint' }, 'Add as many as you like, up to twelve of each. Empty ones get a random word when you deal.'),
+        wordSection('nouns', 'Nouns', 'Columns', 'Add noun'),
+        wordSection('sups', 'Superlatives', 'Rows', 'Add superlative')
+      ),
+      h('section', { class: 'block', 'aria-labelledby': 'packs-h' },
+        h('h2', { id: 'packs-h' }, 'Word packs'),
+        h('p', { class: 'hint' }, 'Roll, Fill blanks and Instant game pick from these. Add your own words to the mix too.'),
+        packRow('n', NOUN_PACKS, 'Noun packs'),
+        h('div', { class: 'fieldwrap' },
+          h('label', { class: 'eyebrow', for: 'custom-n' }, 'Your nouns'),
+          customBox('n', 'custom-n', 'One per line or separated by commas')
+        ),
+        packRow('s', SUPER_PACKS, 'Superlative packs'),
+        h('div', { class: 'fieldwrap' },
+          h('label', { class: 'eyebrow', for: 'custom-s' }, 'Your superlatives'),
+          customBox('s', 'custom-s', 'One per line or separated by commas')
+        )
+      ),
+      h('div', { class: 'bar' },
+        h('button', { class: 'btn primary big', type: 'button', onclick: deal }, state.dealt ? 'Back to the grid' : 'Deal the grid')
+      )
+    );
+  }
+
+  function viewPlay() {
+    var P = state.players;
+    var max = Math.max.apply(null, P.map(function (p) { return p.score; }));
+    var total = state.sups.length * state.nouns.length;
+    var done = 0, answered = 0;
+
+    var grid = h('div', { class: 'grid', style: '--n:' + state.nouns.length });
+    grid.append(h('div', { class: 'corner' }));
+    state.nouns.forEach(function (n) { grid.append(h('div', { class: 'ch' }, h('span', {}, n.text))); });
+    state.sups.forEach(function (s) {
+      grid.append(h('div', { class: 'rh' }, h('span', {}, s.text)));
+      state.nouns.forEach(function (n) {
+        var k = cellKey(s.id, n.id);
+        var cell = state.cells[k];
+        var winner = cell && cell.w !== null && cell.w !== undefined ? byId(cell.w) : null;
+        if (cell) { done++; if (cell.a) answered++; }
+        var cls = 'cell' + (cell && !winner ? ' draw' : '') + (cell && cell.a ? ' note' : '');
+        var label = phrase(s.id, n.id).trim() + (winner ? ', won by ' + dn(winner) : cell ? ', no winner' : ', not settled yet') + (cell && cell.a ? ', answer saved' : '');
+        var inner;
+        if (winner) inner = h('span', { class: 'won', style: '--pc:' + colorVar(indexOfId(winner.id)) }, initial(winner));
+        else if (cell) inner = h('span', { class: 'draw-mark' }, '–');
+        else inner = h('span', { class: 'pip' });
+        grid.append(h('button', {
+          class: cls, type: 'button', 'data-cell': k, 'aria-label': label,
+          onclick: function () { openCell(s.id, n.id); }
+        }, inner));
+      });
+    });
+    var savedCount = answered + state.archive.length;
+    var finale = (total > 0 && done >= total) ? buildFinale() : null;
+
+    return h('div', { class: 'app' },
+      h('div', { class: 'topbar' },
+        h('h1', {}, h('span', { class: 'tag-sup' }, 'SKWAB'), h('span', { class: 'tag-noun' }, 'BLE')),
+        h('button', { class: 'btn small', type: 'button', onclick: openMenu }, icon('menu'), 'Options')
+      ),
+      h('div', { class: 'board' },
+        finale,
+        h('div', { class: 'scores', 'aria-label': 'Scores' }, P.map(function (p, i) {
+          return h('div', { class: 'chip' + (max > 0 && p.score === max ? ' lead' : ''), style: '--pc:' + colorVar(i) },
+            h('span', { class: 'dot' }),
+            h('span', { class: 'cname' }, dn(p)),
+            h('span', { class: 'cscore' }, String(p.score))
+          );
+        })),
+        h('div', { class: 'meta' },
+          h('span', { class: 'eyebrow' }, done + ' of ' + total + ' settled'),
+          h('div', { class: 'btnrow' },
+            h('button', { class: 'btn small', type: 'button', onclick: randomCell }, icon('dice'), 'Random cell'),
+            h('button', { class: 'btn small', type: 'button', onclick: openAnswers }, 'Answers' + (savedCount ? ' (' + savedCount + ')' : ''))
+          )
+        ),
+        h('div', { class: 'track', role: 'presentation' }, h('div', { class: 'fill', style: 'width:' + (total ? Math.round(done / total * 100) : 0) + '%' })),
+        h('div', { class: 'scroller' }, grid),
+        h('p', { class: 'eyebrow' }, 'Yellow dot on a cell = answer saved')
+      )
+    );
+  }
+
+  /* ---------- sheets ---------- */
+  function cellSheet(sid, nid) {
+    var k = cellKey(sid, nid);
+    var cell = state.cells[k];
+    var s = supById(sid), n = nounById(nid);
+    if (!s || !n) return menuSheet();
+    var ta = h('textarea', {
+      id: 'answer', class: 'input', rows: '3', maxlength: '400',
+      placeholder: 'What won the argument? (optional)'
+    });
+    ta.value = cell && cell.a ? cell.a : '';
+    ta.addEventListener('input', function () {
+      var c = state.cells[k];
+      if (c) { c.a = ta.value.trim(); save(); }
+    });
+    return h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': phrase(sid, nid), tabindex: '-1' },
+      h('p', { class: 'eyebrow' }, 'Argue it out'),
+      h('h2', { class: 'phrase' }, h('span', { class: 'tag-sup' }, s.text), ' ', h('span', { class: 'tag-noun' }, n.text)),
+      h('div', { class: 'fieldwrap' },
+        h('label', { class: 'eyebrow', for: 'answer' }, 'The winning answer'),
+        ta
+      ),
+      h('div', { class: 'fieldwrap' },
+        h('p', { class: 'eyebrow' }, 'Who wins? One point to one person'),
+        h('div', { class: 'picks' }, state.players.map(function (p, i) {
+          var on = cell && cell.w === p.id;
+          return h('button', {
+            class: 'pick' + (on ? ' on' : ''), type: 'button', style: '--pc:' + colorVar(i),
+            onclick: function () { award(sid, nid, p.id); }
+          },
+            h('span', { class: 'won' }, initial(p)),
+            h('span', { class: 'pname' }, dn(p)),
+            h('span', { class: 'pts' }, on ? 'Winner' : p.score + ' pts')
+          );
+        }))
+      ),
+      h('div', { class: 'foot' },
+        h('button', { class: 'btn ghost', type: 'button', onclick: function () { award(sid, nid, null); } }, 'No winner'),
+        cell ? h('button', { class: 'btn ghost', type: 'button', onclick: function () { clearCell(sid, nid); } }, 'Clear cell') : null,
+        h('button', { class: 'btn', type: 'button', onclick: closeSheet }, 'Close')
+      )
+    );
+  }
+
+  function answersSheet() {
+    var current = [];
+    Object.keys(state.cells).forEach(function (k) {
+      var ids = parseKey(k);
+      if (supById(ids.sid) && nounById(ids.nid)) current.push({ ids: ids, cell: state.cells[k] });
+    });
+    current.sort(function (a, b) { return (b.cell.t || 0) - (a.cell.t || 0); });
+    var earlier = state.archive.slice().sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
+    var hasText = earlier.length > 0 || current.some(function (it) { return it.cell.a; });
+
+    var currentList = current.length ? h('div', { class: 'alist' }, current.map(function (it) {
+      var w = it.cell.w !== null && it.cell.w !== undefined ? byId(it.cell.w) : null;
+      return h('button', { class: 'aitem', type: 'button', onclick: function () { openCell(it.ids.sid, it.ids.nid); } },
+        h('div', { class: 'aline' }, phrase(it.ids.sid, it.ids.nid).trim()),
+        h('div', { class: 'awho', style: w ? '--pc:' + colorVar(indexOfId(w.id)) : '' },
+          w ? h('span', { class: 'dot' }) : null,
+          w ? dn(w) : 'No winner'),
+        h('div', { class: 'atext' + (it.cell.a ? '' : ' none') }, it.cell.a || 'No answer written')
+      );
+    })) : h('p', { class: 'empty' }, 'Nothing settled yet. Winning answers show up here.');
+
+    return h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Answers', tabindex: '-1' },
+      h('p', { class: 'eyebrow' }, 'This round'),
+      currentList,
+      earlier.length ? h('p', { class: 'eyebrow' }, 'Earlier rounds') : null,
+      earlier.length ? h('div', { class: 'alist' }, earlier.map(function (e) {
+        return h('div', { class: 'aitem' },
+          h('div', { class: 'aline' }, e.p),
+          h('div', { class: 'awho' }, e.w || 'No winner'),
+          h('div', { class: 'atext' }, e.a)
+        );
+      })) : null,
+      fallbackBox(),
+      h('div', { class: 'foot' },
+        hasText ? h('button', { class: 'btn ghost', type: 'button', onclick: function () { copyText(answersText(), 'Answers copied'); } }, 'Copy as text') : null,
+        earlier.length ? h('button', { class: 'btn ghost', type: 'button', onclick: clearEarlier }, ui.confirm ? 'Tap again to clear' : 'Clear earlier answers') : null,
+        h('button', { class: 'btn', type: 'button', onclick: closeSheet }, 'Close')
+      )
+    );
+  }
+
+  function menuSheet() {
+    return h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Options', tabindex: '-1' },
+      h('p', { class: 'eyebrow' }, 'Options'),
+      h('div', { class: 'menu' },
+        h('button', { class: 'menuitem', type: 'button', onclick: freshWords }, h('b', {}, 'Fresh words'), h('span', {}, 'New random nouns and superlatives. Scores stay. Answers move to earlier rounds.')),
+        h('button', { class: 'menuitem', type: 'button', onclick: replayGrid }, h('b', {}, 'Replay this grid'), h('span', {}, 'Clear the cells. Words and scores stay.')),
+        h('button', { class: 'menuitem', type: 'button', onclick: goSetup }, h('b', {}, 'Edit players and words'), h('span', {}, 'Add or change players, nouns and superlatives.')),
+        h('button', { class: 'menuitem', type: 'button', onclick: openBackup }, h('b', {}, 'Back up or restore'), h('span', {}, 'Copy a code that saves the whole game, or paste one to bring it back.')),
+        h('button', { class: 'menuitem danger' + (ui.confirm ? ' armed' : ''), type: 'button', onclick: resetAll },
+          h('b', {}, ui.confirm ? 'Tap again to confirm' : 'Reset scores and grid'),
+          h('span', {}, 'Sets every score back to zero and clears the cells.'))
+      ),
+      h('div', { class: 'foot' }, h('button', { class: 'btn', type: 'button', onclick: closeSheet }, 'Close'))
+    );
+  }
+
+  function packRow(group, packs, label) {
+    var keys = Object.keys(packs).concat(['mine']);
+    return h('div', { class: 'qrow' },
+      h('span', { class: 'eyebrow' }, label),
+      h('div', { class: 'quick' }, keys.map(function (pk) {
+        var on = state.packs[group].indexOf(pk) > -1;
+        return h('button', {
+          class: 'opt', type: 'button', 'aria-pressed': String(on),
+          onclick: function () { togglePack(group, pk); }
+        }, pk === 'mine' ? 'My words' : packs[pk].label);
+      }))
+    );
+  }
+  function customBox(group, id, ph) {
+    var ta = h('textarea', { id: id, class: 'input', rows: '2', placeholder: ph, maxlength: '1500' });
+    ta.value = state.custom[group];
+    ta.addEventListener('input', function () { state.custom[group] = ta.value; save(); });
+    return ta;
+  }
+
+  function buildFinale() {
+    var tally = {};
+    Object.keys(state.cells).forEach(function (k) {
+      var c = state.cells[k];
+      if (c.w !== null && c.w !== undefined && byId(c.w)) tally[c.w] = (tally[c.w] || 0) + 1;
+    });
+    var rows = state.players.map(function (p, i) { return { p: p, i: i, n: tally[p.id] || 0 }; });
+    rows.sort(function (a, b) { return b.n - a.n; });
+    var top = rows[0].n;
+    var names = rows.filter(function (r) { return r.n === top; }).map(function (r) { return dn(r.p); });
+    var headline = top === 0 ? 'Nobody won a cell'
+      : names.length === 1 ? names[0] + ' takes the round'
+      : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] + ' tie the round';
+    return h('section', { class: 'finale', 'aria-label': 'Round complete' },
+      h('p', { class: 'eyebrow' }, 'Round complete'),
+      h('h2', {}, headline),
+      h('div', { class: 'ranks' }, rows.map(function (r) {
+        return h('div', { class: 'rank', style: '--pc:' + colorVar(r.i) },
+          h('span', { class: 'rname' }, dn(r.p)),
+          h('span', { class: 'rbar' }, h('span', { style: 'width:' + (top ? Math.round(r.n / top * 100) : 0) + '%' })),
+          h('span', { class: 'rnum' }, String(r.n))
+        );
+      })),
+      h('div', { class: 'foot' },
+        h('button', { class: 'btn', type: 'button', onclick: freshWords }, 'Fresh words'),
+        h('button', { class: 'btn', type: 'button', onclick: replayGrid }, 'Replay grid'),
+        h('button', { class: 'btn', type: 'button', onclick: openAnswers }, 'Answers')
+      )
+    );
+  }
+
+  function answersText() {
+    var lines = ['SKWABBLE'];
+    lines.push('Scores: ' + state.players.slice().sort(function (a, b) { return b.score - a.score; }).map(function (p) { return dn(p) + ' ' + p.score; }).join(', '));
+    function entry(p, w, a) { return p + ' (' + (w || 'no winner') + '): ' + a; }
+    var cur = [];
+    Object.keys(state.cells).forEach(function (k) {
+      var c = state.cells[k], ids = parseKey(k);
+      if (!c.a || !supById(ids.sid) || !nounById(ids.nid)) return;
+      var w = c.w !== null && c.w !== undefined && byId(c.w) ? dn(byId(c.w)) : '';
+      cur.push({ t: c.t || 0, s: entry(phrase(ids.sid, ids.nid).trim(), w, c.a) });
+    });
+    cur.sort(function (a, b) { return a.t - b.t; });
+    if (cur.length) { lines.push('', 'This round'); cur.forEach(function (x) { lines.push(x.s); }); }
+    var old = state.archive.slice().sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
+    if (old.length) { lines.push('', 'Earlier rounds'); old.forEach(function (e) { lines.push(entry(e.p, e.w, e.a)); }); }
+    return lines.join('\n');
+  }
+
+  function fallbackBox() {
+    if (!ui.fallbackText) return null;
+    var ta = h('textarea', { id: 'fallback', class: 'input', rows: '5', readonly: true, 'aria-label': 'Text to copy' });
+    ta.value = ui.fallbackText;
+    return h('div', { class: 'fieldwrap' },
+      h('p', { class: 'eyebrow' }, 'Copy is blocked here. Select all and copy.'),
+      ta
+    );
+  }
+
+  function openBackup() {
+    ui.sheet = { type: 'backup' };
+    ui.confirm = false; ui.fallbackText = null; ui.restoreMsg = '';
+    ui.returnFocus = document.activeElement;
+    renderLayer();
+  }
+  function restore() {
+    var ta = document.getElementById('restore');
+    var raw = ta ? ta.value.trim() : '';
+    var data = null;
+    try { data = JSON.parse(raw); } catch (e) { data = null; }
+    if (!data || !valid(data)) {
+      ui.confirm = false;
+      ui.restoreMsg = raw ? 'That is not a valid backup code.' : 'Paste a backup code first.';
+      renderLayer();
+      return;
+    }
+    if (!ui.confirm) { ui.confirm = true; ui.restoreMsg = ''; renderLayer(); return; }
+    state = normalise(data);
+    ui.qp = Math.min(Math.max(state.players.length, 2), MAX_PLAYERS);
+    ui.qs = Math.min(Math.max(state.nouns.length, 3), 10);
+    save(); closeSheet(); render();
+    toast('Backup restored');
+  }
+  function backupSheet() {
+    var ta = h('textarea', { id: 'restore', class: 'input', rows: '4', placeholder: 'Paste a backup code here' });
+    ta.value = ui.restoreDraft || '';
+    ta.addEventListener('input', function () { ui.restoreDraft = ta.value; });
+    return h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Back up or restore', tabindex: '-1' },
+      h('p', { class: 'eyebrow' }, 'Back up'),
+      h('p', { class: 'hint' }, 'Copy the code and keep it somewhere safe, like a note to yourself. It holds players, words, scores and answers.'),
+      h('button', { class: 'btn', type: 'button', onclick: function () { copyText(JSON.stringify(state), 'Backup copied'); } }, 'Copy backup code'),
+      fallbackBox(),
+      h('p', { class: 'eyebrow' }, 'Restore'),
+      h('p', { class: 'hint' }, 'Paste a backup code to replace the game on this phone.'),
+      ta,
+      ui.restoreMsg ? h('p', { class: 'err', role: 'alert' }, ui.restoreMsg) : null,
+      h('div', { class: 'foot' },
+        h('button', { class: 'btn ghost', type: 'button', onclick: restore }, ui.confirm ? 'Tap again to replace this game' : 'Restore'),
+        h('button', { class: 'btn', type: 'button', onclick: closeSheet }, 'Close')
+      )
+    );
+  }
+
+  function renderLayer() {
+    layerEl.replaceChildren();
+    document.body.classList.toggle('lock', !!ui.sheet);
+    if (!ui.sheet) return;
+    var panel;
+    if (ui.sheet.type === 'cell') panel = cellSheet(ui.sheet.sid, ui.sheet.nid);
+    else if (ui.sheet.type === 'answers') panel = answersSheet();
+    else if (ui.sheet.type === 'backup') panel = backupSheet();
+    else panel = menuSheet();
+    layerEl.append(h('div', { class: 'sheet-wrap' }, h('div', { class: 'backdrop', onclick: closeSheet }), panel));
+    panel.focus();
+    var fb = document.getElementById('fallback');
+    if (fb) { fb.focus(); fb.select(); }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && ui.sheet) closeSheet();
+  });
+
+  /* ---------- boot ---------- */
+  function boot(data) {
+    var s = null;
+    if (data && valid(data)) s = normalise(data);
+    if (!s) s = load();
+    state = s || fresh();
+    ui.qp = Math.min(Math.max(state.players.length, 2), MAX_PLAYERS);
+    ui.qs = Math.min(Math.max(state.nouns.length, 3), 10);
+    render();
+  }
+  boot({});
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
